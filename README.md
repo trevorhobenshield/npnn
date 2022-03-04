@@ -6,3 +6,5 @@ Simple MLP in NumPy implementing mini-batch SGD with L2 Regularization and Dropo
 `f`,`df`: affine function and it's derivative
 
 `C`,`dC`: loss function and it's derivative
+
+`gW`,`gb`: gradients w.r.t. the list of matrices `W` and list of vectors `b`
