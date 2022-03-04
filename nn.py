@@ -25,7 +25,7 @@ class MLP:
         for epoch in range(epochs):
             train = permutation(train)
             ic(epoch)
-            for i,mb in enumerate((train[n:n+sz] for n in range(0,m,sz))):
+            for i,mb in enumerate(train[n:n+sz] for n in range(0,m,sz)):
                 gW,gb = self.zero_grads()
                 mb_loss = 0.
                 for j,(X,y) in enumerate(mb):
@@ -33,14 +33,10 @@ class MLP:
                     dgW,dgb = self.backward(y)
                     gW = np.sum([gW,dgW],axis=0)
                     gb = np.sum([gb,dgb],axis=0)
-                # self.W -= (lr*gW)/len(mb)  # vanilla update
-                # self.b -= (lr*gb)/len(mb)  # vanilla update
                 self.W = [(1-lr*(reg/m))*W-(lr/len(mb))*gW for W,gW in zip(self.W,gW)]
                 self.b = [b-((lr*gb)/len(mb)) for b,gb in zip(self.b,gb)]
-
                 mb_loss += .5*(reg/len(train))*sum(np.linalg.norm(w)**2 for w in self.W)
-                if i % 200 == 199:
-                    ic(mb_loss)
+                if i%200==199:ic(mb_loss)
 
     def forward(self,X,y):
         self.A = [X]
