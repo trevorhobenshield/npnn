@@ -3,6 +3,7 @@ from icecream import ic,argumentToString
 from numpy import nan_to_num
 from numpy.random import permutation,normal
 
+
 @argumentToString.register(np.ndarray)
 def _(a):return f"{a}\t{a.shape = }"
 
@@ -26,7 +27,7 @@ class MLP:
                 gW,gb = self.zero_grads()
                 mb_loss = 0.
                 for j,(X,y) in enumerate(mb):
-                    mb_loss += self.forward(X,y)/sz
+                    mb_loss += self.forward(X,y)
                     dgW,dgb = self.backward(y)
                     gW = np.sum([gW,dgW],axis=0)
                     gb = np.sum([gb,dgb],axis=0)
@@ -52,8 +53,10 @@ class MLP:
         d = self.dC(self.A[-1],y)
         gb[-1] = d
         gW[-1] = d @ self.A[-2].T
-        for l in range(2,len(self.L)):
-            d = self.W[-l+1].T @ d*self.df(self.Z[-l])
-            gb[-l] = d
-            gW[-l] = d @ self.A[-l-1].T
+        l = -1
+        while l > -len(self.L)+1:
+            d = self.W[l].T @ d * self.df(self.Z[l-1])
+            gb[l-1] = d
+            gW[l-1] = d @ self.A[l-2].T
+            l -= 1
         return gW,gb
