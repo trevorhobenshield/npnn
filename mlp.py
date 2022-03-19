@@ -48,7 +48,7 @@ class MLP:
         gW[-1] = d @ self.A[-2].T
         l = -1
         while l > -len(self.L) + 1:
-            d = self.W[l].T @ d * self.df(self.Z[l - 1])
+            d = (self.W[l].T @ d) * self.df(self.Z[l - 1])
             gb[l - 1] = d
             gW[l - 1] = d @ self.A[l - 2].T
             l -= 1
