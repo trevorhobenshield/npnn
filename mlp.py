@@ -1,15 +1,65 @@
 import numpy as np
 import mnist_loader
 
+
 class MLP:
     def __init__(self, L):
         self.L = L
-        self.W = [np.random.normal(0., np.sqrt(2. / self.L[i]), size=(self.L[i + 1], self.L[i])) for i in range(len(self.L) - 1)]
+        self.W = [np.random.normal(0., np.sqrt(2. / self.L[i]), size=(self.L[i + 1], self.L[i])) for i in
+                  range(len(self.L) - 1)]
         self.b = [np.random.randn(y, 1) for y in self.L[1:]]
-        self.f, self.df = lambda x: 1. / (1. + np.exp(-x)), lambda x: self.f(x) * (1. - self.f(x))
-        self.C, self.dC = lambda a, y: np.sum(np.nan_to_num(-y * np.log(a) - (1 - y) * np.log(1 - a))),lambda a, y: a - y
         self.Z, self.A = ..., ...
-        self.zero_grads = lambda: ([np.zeros_like(w) for w in self.W], [np.zeros_like(b) for b in self.b])
+        self.zero_grads = lambda:([np.zeros_like(w) for w in self.W], [np.zeros_like(b) for b in self.b])
+
+    def f(self,z):
+        """ReLU"""
+        return np.maximum(0, z)
+
+    def df(self,z):
+        """Derivative of ReLU"""
+        return np.where(z > 0, 1, 0)
+
+    def softmax(self, s):
+        """Softmax (unstable)"""
+        exps = np.exp(s)
+        probs = exps / np.sum(exps)
+        return probs
+
+    def J(self, y_hat, y):
+        """Cross-Entropy Loss function"""
+        eps = np.finfo(float).eps  # prevent computing log(0)
+        ce = -np.sum(y * np.log(y_hat + eps))
+        return ce
+
+    def dJ(self, y_hat, y):
+        """Derivative of Cross-Entropy Loss function"""
+        return y_hat - y
+
+    def forward(self, X, y):
+        self.A = [X]
+        self.Z = []
+        # p = 0.5
+        for i, (W, b) in enumerate(zip(self.W, self.b)):
+            Z = W @ self.A[i] + b
+            A = self.f(Z)
+            # A *= (np.random.rand(*A.shape)<p)/p ## dropout
+            self.Z.append(Z)
+            self.A.append(A)
+        self.A[-1] = self.softmax(self.A[-1])
+        return self.J(self.A[-1], y)
+
+    def backward(self, y):
+        gW, gb = self.zero_grads()
+        d = self.dJ(self.A[-1], y)
+        gb[-1] = d
+        gW[-1] = d @ self.A[-2].T
+        l = -1
+        while l > -len(self.L) + 1:
+            d = (self.W[l].T @ d) * self.df(self.Z[l - 1])
+            gb[l - 1] = d
+            gW[l - 1] = d @ self.A[l - 2].T
+            l -= 1
+        return gW, gb
 
     def SGD(self, train, epochs=3, batch_size=32, lr=0.01, reg=0.5):
         m = len(train)
@@ -26,33 +76,8 @@ class MLP:
                     gb = np.sum([gb, dgb], axis=0)
                 self.W = [(1 - lr * (reg / m)) * W - (lr / len(mini_batch)) * gW for W, gW in zip(self.W, gW)]
                 self.b = [b - ((lr * gb) / len(mini_batch)) for b, gb in zip(self.b, gb)]
-                loss += .5 * (reg / len(train)) * sum(np.linalg.norm(w) ** 2 for w in self.W)
+                loss += .5 * (reg / len(train)) * sum(np.linalg.norm(w)**2 for w in self.W)
                 if i % 200 == 199: print(f'{loss = }')
-
-    def forward(self, X, y):
-        self.A = [X]
-        self.Z = []
-        # p = 0.5
-        for i, (W, b) in enumerate(zip(self.W, self.b)):
-            Z = W @ self.A[i] + b
-            A = self.f(Z)
-            # A *= (np.random.rand(*A.shape)<p)/p ## dropout
-            self.Z.append(Z)
-            self.A.append(A)
-        return self.C(self.A[-1], y)
-
-    def backward(self, y):
-        gW, gb = self.zero_grads()
-        d = self.dC(self.A[-1], y)
-        gb[-1] = d
-        gW[-1] = d @ self.A[-2].T
-        l = -1
-        while l > -len(self.L) + 1:
-            d = (self.W[l].T @ d) * self.df(self.Z[l - 1])
-            gb[l - 1] = d
-            gW[l - 1] = d @ self.A[l - 2].T
-            l -= 1
-        return gW, gb
 
 
 def main():
@@ -60,9 +85,9 @@ def main():
     net = MLP([784, *[50, 20], 10])
     net.SGD(train=train,
             epochs=3,
-            batch_size=10,
-            lr=0.1,
-            reg=0.5)
+            batch_size=32,
+            lr=0.001,
+            reg=0.4)
 
 
 if __name__ == '__main__':
