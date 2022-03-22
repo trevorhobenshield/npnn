@@ -7,5 +7,5 @@ Simple MLP in NumPy using mini-batch SGD with L2 reg. and Dropout
 
 `J`,`dJ`: loss function and it's derivative
 
-`gW`,`gb`: gradients w.r.t. the model's parameters
+`gW`,`gb`: gradients w.r.t. model parameters
 
