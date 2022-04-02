@@ -1,7 +1,7 @@
 # npnn
 
 ### `mlp.py`
-Simple MLP in NumPy using mini-batch SGD with L2 reg. and Dropout
+Simple MLP in NumPy using mini-batch SGD
 
 `f`,`df`: activation function and it's derivative
 
