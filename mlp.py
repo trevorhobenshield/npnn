@@ -6,25 +6,28 @@ import numpy as np
 
 
 def get_data():
-    def download(url):
-        fp = Path('/tmp',hashlib.md5(url.encode('utf-8')).hexdigest())
+    def fn(url):
+        fp = Path('/tmp', hashlib.md5(url.encode('utf-8')).hexdigest())
         if fp.is_file():
-            with open(fp,'rb')as fr:dat=fr.read()
+            with open(fp, 'rb') as fr:
+                dat = fr.read()
         else:
-            with open(fp,'wb')as fw:fw.write(dat:=requests.get(url).content)
-        return np.frombuffer(gzip.decompress(dat),'uint8')
+            with open(fp, 'wb') as fw:
+                fw.write(dat := requests.get(url).content)
+        return np.frombuffer(gzip.decompress(dat), 'uint8')
+
     # img dim offset = [0xB]
-    X_train = download('http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz')[0x10:]
-    y_train = download('http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz')[0x08:]
-    X_test = download('http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz')[0x10:]
-    y_test = download('http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz')[0x08:]
+    X_train = fn('http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz')[0x10:]
+    y_train = fn('http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz')[0x08:]
+    X_test = fn('http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz')[0x10:]
+    y_test = fn('http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz')[0x08:]
 
     X_train = X_train.reshape(-1, 784, 1)
     X_test = X_test.reshape(-1, 784, 1)
     y_train = np.eye(10)[y_train][..., np.newaxis]
     y_test = np.eye(10)[y_test][..., np.newaxis]
 
-    return {'X_train':X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
+    return X_train, y_train, X_test, y_test
 
 
 class MLP:
@@ -106,14 +109,16 @@ class MLP:
 
 
 def main():
-    d = get_data()
-    train = list(zip(d['X_train'], d['y_train']))
+    np.random.seed(69)
+
+    X_train, y_train = get_data()[:2]
+    train = list(zip(X_train, y_train))
     net = MLP([784, *[64, 32, 16], 10])
     net.SGD(train=train,
             epochs=3,
             batch_size=16,
             lr=0.0001,
-            reg=0.5)
+            reg=0.2)
 
 
 if __name__ == '__main__':
