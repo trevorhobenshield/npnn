@@ -1,6 +1,6 @@
 # npnn
 
-Toy example of an MNIST classifier in `NumPy`
+NumPy-only toy example of an MNIST classifier 
 
 `f`,`df`: activation function and it's derivative
 
