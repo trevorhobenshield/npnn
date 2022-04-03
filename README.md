@@ -1,7 +1,7 @@
 # npnn
 
 ### `mlp.py`
-Simple MLP in NumPy using mini-batch SGD
+Toy example of an MNIST classifier in NumPy
 
 `f`,`df`: activation function and it's derivative
 
