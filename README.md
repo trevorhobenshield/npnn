@@ -1,7 +1,6 @@
 # npnn
 
-### `mlp.py`
-Toy example of an MNIST classifier in NumPy
+Toy example of an MNIST classifier in `NumPy`
 
 `f`,`df`: activation function and it's derivative
 
