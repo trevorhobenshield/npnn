@@ -1,5 +1,8 @@
+import gzip
+import hashlib
+import requests
+from pathlib import Path
 import numpy as np
-import mnist_loader
 
 
 class MLP:
@@ -80,14 +83,42 @@ class MLP:
                 if i % 200 == 199: print(f'{loss = }')
 
 
+
+def get_data():
+    def download(url):
+        fp = Path('/tmp', hashlib.md5(url.encode('utf-8')).hexdigest())
+        if fp.is_file():
+            with open(fp, 'rb') as fr:
+                dat = fr.read()
+        else:
+            with open(fp, 'wb') as fw:
+                dat = requests.get(url).content
+                fw.write(dat)
+        return np.frombuffer(gzip.decompress(dat), dtype='uint8')
+
+    # img dim offset = [0xB]
+    X_train = download('http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz')[0x10:]
+    y_train = download('http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz')[0x08:]
+    X_test = download('http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz')[0x10:]
+    y_test = download('http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz')[0x08:]
+
+    X_train = X_train.reshape(-1, 784, 1)
+    X_test = X_test.reshape(-1, 784, 1)
+    y_train = np.eye(10)[y_train][..., np.newaxis]
+    y_test = np.eye(10)[y_test][..., np.newaxis]
+
+    return {'X_train':X_train, 'y_train':y_train, 'X_test':X_test, 'y_test':y_test}
+
+
 def main():
-    train, val, test = mnist_loader.load_data_wrapper()
-    net = MLP([784, *[50, 20], 10])
+    d = get_data()
+    train = list(zip(d['X_train'], d['y_train']))
+    net = MLP([784, *[64,32,16], 10])
     net.SGD(train=train,
             epochs=3,
-            batch_size=32,
-            lr=0.001,
-            reg=0.4)
+            batch_size=16,
+            lr=0.0001,
+            reg=0.5)
 
 
 if __name__ == '__main__':
