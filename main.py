@@ -20,6 +20,7 @@ def get_data():
     X_test, y_test = X_test.reshape(-1, 784, 1), np.eye(10)[y_test][..., np.newaxis]
     return X_train, y_train, X_test, y_test
 
+
 class MLP:
     def __init__(self, L):
         ep = np.finfo(float).eps  # prevent log(0)
@@ -52,7 +53,6 @@ class MLP:
                 total_loss += loss
             print(f'{total_loss = }')
 
-
     def forward(self,X,y):
         self.A,self.Z = [X],[]
         for i,(W,b) in enumerate(zip(self.W,self.b)):
@@ -73,7 +73,6 @@ class MLP:
             db[l-1] = d
             dW[l-1] = d @ self.A[l-2].T
         return dW,db
-
 
 
 def main():
