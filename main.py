@@ -69,7 +69,7 @@ class MLP:
         db[-1] = d
         dW[-1] = d @ self.A[-2].T
         for l in -np.arange(1,len(self.L)-1):
-            d = (self.W[l].T @ d) * self.dReLU(self.Z[l - 1])
+            d = (self.W[l].T @ d) * self.dReLU(self.Z[l-1])
             db[l-1] = d
             dW[l-1] = d @ self.A[l-2].T
         return dW,db
