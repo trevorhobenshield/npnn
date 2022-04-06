@@ -3,7 +3,7 @@ import hashlib
 import requests
 from pathlib import Path
 import numpy as np
-
+from numpy import r_,c_
 
 def get_data():
     def fn(url):
@@ -26,7 +26,7 @@ class MLP:
         ep = np.finfo(float).eps  # prevent log(0)
         self.L = L
         self.W = [np.random.normal(0.,np.sqrt(2./self.L[i]),size=(self.L[i+1],self.L[i])) for i in
-                  range(len(self.L)-1)]  # kaiming/bottou
+                  r_[:len(self.L)-1]]  # kaiming/bottou
         self.b = [np.random.randn(i,1) for i in self.L[1:]]
         self.ReLU, self.dReLU = lambda z:np.maximum(0, z), lambda z:np.where(z > 0, 1, 0)
         self.softmax = lambda s:(exps := np.exp(s)) / np.sum(exps)
@@ -36,11 +36,11 @@ class MLP:
 
     def SGD(self, train, epochs=10, batch_size=16, lr=0.001, reg=1e-3):
         train_size = len(train)
-        for epoch in range(epochs):
+        for epoch in r_[:epochs]:
             total_loss = 0.
             print(f'{epoch = }')
             train = np.random.permutation(train)
-            for i,batch in enumerate(train[n:n + batch_size] for n in range(0, len(train), batch_size)):
+            for i,batch in enumerate(train[n:n+batch_size] for n in r_[0:train_size:batch_size]):
                 dW,db = self.zero_grads()
                 loss = 0.
                 for j,(X,y) in enumerate(batch):
@@ -68,7 +68,7 @@ class MLP:
         d = self.dJ(self.A[-1],y)
         db[-1] = d
         dW[-1] = d @ self.A[-2].T
-        for l in -np.r_[1:len(self.L)-1]:
+        for l in -r_[1:len(self.L)-1]:
             d = (self.W[l].T @ d) * self.dReLU(self.Z[l-1])
             db[l-1] = d
             dW[l-1] = d @ self.A[l-2].T
