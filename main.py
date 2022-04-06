@@ -40,7 +40,7 @@ class MLP:
             total_loss = 0.
             print(f'{epoch = }')
             train = np.random.permutation(train)
-            for i,batch in enumerate(train[n:n+batch_size] for n in r_[0:train_size:batch_size]):
+            for i,batch in enumerate(train[n:n+batch_size] for n in r_[:train_size:batch_size]):
                 dW,db = self.zero_grads()
                 loss = 0.
                 for j,(X,y) in enumerate(batch):
