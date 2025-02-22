@@ -1,90 +1,74 @@
-import gzip
-import hashlib
-import requests
 from pathlib import Path
 import numpy as np
-from numpy import r_,c_
 
-def get_data():
-    def fn(url):
-        if (fp:=Path('/tmp', hashlib.md5(url.encode('utf-8')).hexdigest())).is_file():
-            with open(fp,'rb')as f:d=f.read()
-        else:
-            with open(fp,'wb')as f:f.write(d:=requests.get(url).content)
-        return np.frombuffer(gzip.decompress(d),'uint8')
-    X_train = fn('http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz')[0x10:]
-    y_train = fn('http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz')[0x08:]
-    X_test = fn('http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz')[0x10:]
-    y_test = fn('http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz')[0x08:]
-    X_train, y_train = X_train.reshape(-1, 784, 1), np.eye(10)[y_train][..., np.newaxis]
-    X_test, y_test = X_test.reshape(-1, 784, 1), np.eye(10)[y_test][..., np.newaxis]
+
+def get_data(data_path: str | Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def read(fname: str) -> np.ndarray:
+        return np.frombuffer((Path(data_path) / fname).read_bytes(), "uint8")
+
+    n_labels = 10
+    dim = -1, 784, 1
+    X_train, y_train = read("train-images-idx3-ubyte")[0x10:], read("train-labels-idx1-ubyte")[0x08:]
+    X_test, y_test = read("t10k-images-idx3-ubyte")[0x10:], read("t10k-labels-idx1-ubyte")[0x08:]
+    X_train, y_train = X_train.reshape(*dim), np.eye(n_labels)[y_train][..., np.newaxis]
+    X_test, y_test = X_test.reshape(*dim), np.eye(n_labels)[y_test][..., np.newaxis]
     return X_train, y_train, X_test, y_test
 
 
 class MLP:
-    def __init__(self, L):
-        ep = np.finfo(float).eps  # prevent log(0)
+    def __init__(self, L: list[int]):
         self.L = L
-        self.W = [np.random.normal(0., np.sqrt(2. / self.L[i]), size=(self.L[i + 1], self.L[i])) for i in
-                  range(len(self.L) - 1)]  # kaiming/bottou
-        self.b = [np.random.randn(i,1) for i in self.L[1:]]
-        self.ReLU, self.dReLU = lambda z:np.maximum(0, z), lambda z:np.where(z > 0, 1, 0)
-        self.softmax = lambda s:(exps := np.exp(s)) / np.sum(exps)
-        self.J,self.dJ = lambda a,y:-np.sum(y * np.log(a + ep)),lambda a,y:a-y
-        self.zero_grads = lambda:([np.zeros_like(w) for w in self.W],[np.zeros_like(b) for b in self.b])
-        self.Z,self.A = [],[]  # cache forward computations
+        self.W = [np.random.normal(0.0, np.sqrt(2.0 / n_in), (n_out, n_in)) for n_in, n_out in zip(L[:-1], L[1:])]
+        self.b = [np.random.randn(n_out, 1) for n_out in L[1:]]
+        self.ReLU = lambda z: np.maximum(0, z)
+        self.dReLU = lambda z: z > 0
+        self.softmax = lambda s: np.exp(s) / np.sum(np.exp(s), axis=0)
+        self.loss = lambda a, y: -np.sum(y * np.log(a + 1e-10))
+        self.d_loss = lambda a, y: a - y
 
-    def SGD(self, train, epochs=10, batch_size=16, lr=0.001, reg=1e-3):
+    def SGD(self, train: list[tuple[np.ndarray, np.ndarray]], epochs: int = 10, batch_size: int = 32, lr: float = 0.001, reg: float = 1e-3):
         train_size = len(train)
-        for epoch in r_[:epochs]:
-            total_loss = 0.
-            print(f'{epoch = }')
-            train = np.random.permutation(train)
-            for i, batch in enumerate(train[n:n + batch_size] for n in range(0, train_size, batch_size)):
-                dW,db = self.zero_grads()
-                loss = 0.
-                for j,(X,y) in enumerate(batch):
-                    loss += self.forward(X,y)
-                    d_dW,d_db = self.backward(y)
-                    dW = np.sum([dW,d_dW], axis=0)
-                    db = np.sum([db,d_db], axis=0)
-                self.W = [w-(lr*reg*w/train_size + lr*dw/batch_size) for w, dw in zip(self.W, dW)]
-                self.b -= lr*db
-                total_loss += loss
-            print(f'{total_loss = }')
+        for epoch in range(epochs):
+            indices = np.random.permutation(train_size)
+            total_loss = 0.0
+            for i in range(0, train_size, batch_size):
+                batch = [train[idx] for idx in indices[i : i + batch_size]]
+                dW = [np.zeros_like(w) for w in self.W]
+                db = [np.zeros_like(b) for b in self.b]
+                loss = 0.0
+                for X, y in batch:
+                    # forward
+                    A = [X]
+                    Z = []
+                    for w, b in zip(self.W, self.b):
+                        Z.append(w @ A[-1] + b)
+                        A.append(self.ReLU(Z[-1]))
+                    A[-1] = self.softmax(Z[-1])
+                    loss += self.loss(A[-1], y)
 
-    def forward(self,X,y):
-        self.A,self.Z = [X],[]
-        for i,(W,b) in enumerate(zip(self.W,self.b)):
-            Z = W @ self.A[i] + b
-            A = self.ReLU(Z)
-            self.Z.append(Z)
-            self.A.append(A)
-        self.A[-1] = self.softmax(self.A[-1])
-        return self.J(self.A[-1],y)
+                    delta = self.d_loss(A[-1], y)
+                    db[-1] += delta
+                    dW[-1] += delta @ A[-2].T
+                    for l in reversed(range(len(self.W) - 1)):
+                        delta = (self.W[l + 1].T @ delta) * self.dReLU(Z[l])
+                        db[l] += delta
+                        dW[l] += delta @ A[l].T
 
-    def backward(self,y):
-        dW,db = self.zero_grads()
-        d = self.dJ(self.A[-1],y)
-        db[-1] = d
-        dW[-1] = d @ self.A[-2].T
-        for l in -np.arange(1,len(self.L)-1):
-            d = (self.W[l].T @ d) * self.dReLU(self.Z[l-1])
-            db[l-1] = d
-            dW[l-1] = d @ self.A[l-2].T
-        return dW,db
+                for l in range(len(self.W)):
+                    self.W[l] -= lr * (dW[l] / batch_size + reg * self.W[l] / train_size)
+                    self.b[l] -= lr * db[l] / batch_size
+
+                total_loss += loss / batch_size
+            print(f"{epoch = }\t{loss = }\t{total_loss = }")
 
 
-def main():
+def main(data_path: str | Path):
     np.random.seed(69)
-    X_train, y_train = get_data()[:2]
+    X_train, y_train = get_data(data_path)[:2]
     train = list(zip(X_train, y_train))
     net = MLP([784, *[64, 32, 16], 10])
-    net.SGD(train=train,
-            epochs=10,
-            batch_size=32,
-            lr=0.0001)
+    net.SGD(train=train, epochs=10, batch_size=32, lr=0.0001)
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    main(data_path=Path(__file__).parent / "data/mnist")
