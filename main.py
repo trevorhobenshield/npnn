@@ -71,4 +71,4 @@ def main(data_path: str | Path):
 
 
 if __name__ == "__main__":
-    main(data_path=Path(__file__).parent / "data/mnist")
+    main(data_path=Path(__file__).parent / "mnist")
